@@ -55,12 +55,14 @@ sed -i '.sed.bak' 's/^__/*/g' $TEXTFILE
 sed -n "s/.*{link:\(.*\)}.*/\1/p"  "$TEXTFILE"  | sed -e "s/\(.*\)/{link:\1}/" > /tmp/links
 
 # Read each one and recreate a redmine link
-while read SLINK; do 
-	LINKTEXT=$(echo $SLINK | sed -n "s/.*{link:\(.*\)|http.*/\1/p"); 
-	#echo "replace:$SLINK"; 
-	#LINK=$(echo $SLINK | sed -n "s/.*|http\(.*\)|img.*/\1/p"); 
-	LINK=$(echo $SLINK | grep -Eo '(http|https)://[^}]+')
-	#echo "link: \"$LINKTEXT\":http$LINK"; 
+while read SLINK; do
+	LINKTEXT=$(echo $SLINK | sed -n "s/.*{link:\(.*\)|http.*/\1/p");
+	echo "$SLINK" | grep -q '|img' > /dev/null 
+	if [ $? -eq 0 ]; then  
+		LINK=$(echo "$SLINK" | grep -Eo '(http|https)://[^|]+') 
+	else 
+		LINK=$(echo "$SLINK" | grep -Eo '(http|https)://[^}]+') 
+	fi 
 	sed -i '.sed.bak' "s^$SLINK^\"$LINKTEXT\":$LINK^" $TEXTFILE; 
 done < /tmp/links
 
