@@ -58,9 +58,10 @@ sed -n "s/.*{link:\(.*\)}.*/\1/p"  "$TEXTFILE"  | sed -e "s/\(.*\)/{link:\1}/" >
 while read SLINK; do 
 	LINKTEXT=$(echo $SLINK | sed -n "s/.*{link:\(.*\)|http.*/\1/p"); 
 	#echo "replace:$SLINK"; 
-	LINK=$(echo $SLINK | sed -n "s/.*|http\(.*\)|img.*/\1/p"); 
+	#LINK=$(echo $SLINK | sed -n "s/.*|http\(.*\)|img.*/\1/p"); 
+	LINK=$(echo $SLINK | grep -Eo '(http|https)://[^}]+')
 	#echo "link: \"$LINKTEXT\":http$LINK"; 
-	sed -i '.sed.bak' "s^$SLINK^\"$LINKTEXT\":http$LINK^" $TEXTFILE; 
+	sed -i '.sed.bak' "s^$SLINK^\"$LINKTEXT\":$LINK^" $TEXTFILE; 
 done < /tmp/links
 
 # Redmine page links have two brace, compared to Sakai one brace.
