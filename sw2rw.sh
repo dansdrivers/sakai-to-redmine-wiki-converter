@@ -18,6 +18,9 @@ if [ "$TEXTFILE" == "" ]; then
 	usage
 	exit
 fi
+# copy the original file just in case
+cat $TEXTFILE > /tmp/original_file.txt
+
 # add a line break after heading lines that don't have one
 # Grep out the heading and following line to a temp file
 cat $TEXTFILE | grep -E '^h[1-4] ' -A1 | grep -v '\-\-' > /tmp/tt
@@ -37,7 +40,7 @@ while read line1 && read line2; do
 	fi 
 done < /tmp/tt;
  
-# the newlines in sakai wiki are inject by \\ replace them with <br>
+# the newlines in sakai wiki are injected by \\ replace them with a actual new line
 sed -i '.sed.bak' 's|\\\\|\
 |g' $TEXTFILE
 
@@ -49,28 +52,39 @@ sed -i '.sed.bak' 's/h\([1-4]\) /h\1\. /g' $TEXTFILE
 sed -i '.sed.bak' 's/ __/ */g' $TEXTFILE
 sed -i '.sed.bak' 's/__ /* /g' $TEXTFILE
 sed -i '.sed.bak' 's/^__/*/g' $TEXTFILE
+sed -i '.sed.bak' 's/__$/*/g' $TEXTFILE
 
 # Redmine only supports bare http://link or "link text":http://link for external stuff.
 # Write all Sakai {link:link text:http://link ...} links to a tmp file
 sed -n "s/.*{link:\(.*\)}.*/\1/p"  "$TEXTFILE"  | sed -e "s/\(.*\)/{link:\1}/" > /tmp/links
 
+
 # Read each one and recreate a redmine link
-while read SLINK; do
-	LINKTEXT=$(echo $SLINK | sed -n "s/.*{link:\(.*\)|http.*/\1/p");
-	echo "$SLINK" | grep -q '|img' > /dev/null 
-	if [ $? -eq 0 ]; then  
-		LINK=$(echo "$SLINK" | grep -Eo '(http|https)://[^|]+') 
+while read SLINK; do 
+	# If it is a sakai link like resource|sakai:/some.link/folder/file.txt
+	# Replace sakai:/ with https://sakai.rutgers.edu/portal/site/
+	if echo "$SLINK" | grep -q '|sakai:/' ; then 
+		TSLINK=$(echo "$SLINK" | sed  "s^|sakai:/^|https://sakai.rutgers.edu/portal/site/^g")
+		# Sakai links might have been crafted with the |img section.
+		if ! echo "$TSLINK" | grep -q '|img|' ; then 
+			TSLINK=$(echo "$TSLINK" | sed 's/}/|img}/g')
+		fi
+		LINKTEXT=$(echo $TSLINK | sed -n "s/.*{link:\(.*\)|http.*/\1/p"); 
+		#echo "replace:$SLINK"; 
+		LINK=$(echo $TSLINK | sed -n "s/.*|http\(.*\)|img.*/\1/p"); 
+		#echo "link: \"$LINKTEXT\":http$LINK"; 
 	else 
-		LINK=$(echo "$SLINK" | grep -Eo '(http|https)://[^}]+') 
-	fi 
-	sed -i '.sed.bak' "s^$SLINK^\"$LINKTEXT\":$LINK^" $TEXTFILE; 
+		LINKTEXT=$(echo $SLINK | sed -n "s/.*{link:\(.*\)|http.*/\1/p"); 
+		#echo "replace:$SLINK"; 
+		LINK=$(echo $SLINK | sed -n "s/.*|http\(.*\)|img.*/\1/p"); 
+		#echo "link: \"$LINKTEXT\":http$LINK"; 
+	fi
+	sed -i '.sed.bak' "s^$SLINK^\"$LINKTEXT\":http$LINK^" $TEXTFILE; 
 done < /tmp/links
 
-# Redmine page links have two brace, compared to Sakai one brace.
+# Redmine internal page links have two brace, compared to Sakai one brace.
 sed -i '.sed.bak' 's/\[/\[\[/g' $TEXTFILE
 sed -i '.sed.bak' 's/\]/\]\]/g' $TEXTFILE
-
-
 
 # Redmine only supports bare img http://link for external pictures.
 # Write all Sakai {image:sakai links ...} links to a tmp file
@@ -122,6 +136,7 @@ while read SLINK; do
 	# Replace the image url texts in the original file
 	sed  -i '.sed.bak' "s^$SLINK^$RLINK^" $TEXTFILE; 
 done < /tmp/links
+
 
 
 # Occaisional {code} tags
