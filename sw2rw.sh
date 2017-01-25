@@ -54,6 +54,10 @@ sed -i '.sed.bak' 's/__ /* /g' $TEXTFILE
 sed -i '.sed.bak' 's/^__/*/g' $TEXTFILE
 sed -i '.sed.bak' 's/__$/*/g' $TEXTFILE
 
+# Replace horizontal rules
+sed -i '.sed.bak' 's/^----/---\
+/g' $TEXTFILE
+
 # Redmine only supports bare http://link or "link text":http://link for external stuff.
 # Write all Sakai {link:link text:http://link ...} links to a tmp file
 sed -n "s/.*{link:\(.*\)}.*/\1/p"  "$TEXTFILE"  | sed -e "s/\(.*\)/{link:\1}/" > /tmp/links
