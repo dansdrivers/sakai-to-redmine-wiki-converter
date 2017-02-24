@@ -64,27 +64,24 @@ sed -n "s/.*{link:\(.*\)}.*/\1/p"  "$TEXTFILE"  | sed -e "s/\(.*\)/{link:\1}/" >
 
 
 # Read each one and recreate a redmine link
-while read SLINK; do 
-	# If it is a sakai link like resource|sakai:/some.link/folder/file.txt
-	# Replace sakai:/ with https://sakai.rutgers.edu/portal/site/
-	if echo "$SLINK" | grep -q '|sakai:/' ; then 
-		TSLINK=$(echo "$SLINK" | sed  "s^|sakai:/^|https://sakai.rutgers.edu/portal/site/^g")
-		# Sakai links might have been crafted with the |img section.
-		if ! echo "$TSLINK" | grep -q '|img|' ; then 
-			TSLINK=$(echo "$TSLINK" | sed 's/}/|img}/g')
-		fi
-		LINKTEXT=$(echo $TSLINK | sed -n "s/.*{link:\(.*\)|http.*/\1/p"); 
-		#echo "replace:$SLINK"; 
-		LINK=$(echo $TSLINK | sed -n "s/.*|http\(.*\)|img.*/\1/p"); 
-		#echo "link: \"$LINKTEXT\":http$LINK"; 
-	else 
-		LINKTEXT=$(echo $SLINK | sed -n "s/.*{link:\(.*\)|http.*/\1/p"); 
-		#echo "replace:$SLINK"; 
-		LINK=$(echo $SLINK | sed -n "s/.*|http\(.*\)|img.*/\1/p"); 
-		#echo "link: \"$LINKTEXT\":http$LINK"; 
-	fi
-	sed -i '.sed.bak' "s^$SLINK^\"$LINKTEXT\":http$LINK^" $TEXTFILE; 
+while read SLINK; do
+
+	# Create a redmine link from this sakai link.
+	# also Sakai links may have spaces too so put in %20
+	URL=$( echo "$SLINK" | sed -n "s/.*{link:\(.*\)}.*/\1/p"  | sed "s^}^|^g" | sed  "s^|sakai:/^|https://sakai.rutgers.edu/portal/site/^g" | awk -F"|" '{print $2}'  | sed 's/ /%20/g')
+	TEXT=$( echo "$SLINK" | sed -n "s/.*{link:\(.*\)}.*/\1/p"  | sed "s^}^|^g" | awk -F"|" '{print "\""$1"\""}' )
+
+	# '&' is special in the replacement text: it means “the whole part of the input that
+	# was matched by the pattern”, so to insert an actual ampersand in the replacement
+	# text, use \&. 
+	URL_ESC=$(echo "$URL" | sed 's/&/\\&/g')
+	RLINK="${TEXT}:${URL_ESC}"
+	
+ 	# Replace the sakai link with the redmine link
+ 	sed  -i '.sed.bak' "s^$SLINK^$RLINK^" $TEXTFILE;
+
 done < /tmp/links
+
 
 # Redmine internal page links have two brace, compared to Sakai one brace.
 sed -i '.sed.bak' 's/\[/\[\[/g' $TEXTFILE
